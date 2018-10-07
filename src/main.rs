@@ -206,7 +206,11 @@ impl<'a, T: 'a + Eq> SESBuilder<'a, T> {
                     });
                     px += 1;
                 } else {
-                    ses.push(Edit::Common { old: px, new: py });
+                    ses.push(if self.reverse {
+                        Edit::Common { old: py, new: px }
+                    } else {
+                        Edit::Common { old: px, new: py }
+                    });
                     px += 1;
                     py += 1;
                 }
