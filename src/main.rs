@@ -256,8 +256,8 @@ mod tests {
 
     #[test]
     fn test_convert_html() {
-        let actual = convert_html_to_list_of_words("<p>Hello, world</p>");
-        let expected = vec!["<p>", "Hello", ",", " ", "world", "</p>"];
+        let actual = convert_html_to_list_of_words("<p>Hello, world!</p>");
+        let expected = vec!["<p>", "Hello,", " ", "world!", "</p>"];
         assert_eq!(actual, expected);
     }
 
