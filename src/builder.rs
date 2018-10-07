@@ -195,7 +195,7 @@ fn is_img_tag(s: &str) -> bool {
 }
 
 fn is_tag(s: &str) -> bool {
-    s.chars().next() == Some('<')
+    s.starts_with("<")
 }
 
 enum Mode {
@@ -229,15 +229,7 @@ fn convert_html_to_list_of_words(s: &str) -> Vec<&str> {
                 start = i;
                 mode = Mode::Whitespace;
             }
-            Mode::Char if is_in_word(c) => { /* continue */ }
-            Mode::Char => {
-                if start != i {
-                    unsafe {
-                        words.push(s.get_unchecked(start..i));
-                    }
-                }
-                start = i;
-            }
+            Mode::Char => { /* continue */ }
             Mode::Tag if is_end_of_tag(c) => {
                 unsafe {
                     words.push(s.get_unchecked(start..=i));
@@ -287,10 +279,6 @@ fn is_whitespace(c: char) -> bool {
     c.is_whitespace()
 }
 
-fn is_in_word(c: char) -> bool {
-    c.is_alphanumeric() || c == '#' || c == '@'
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -298,7 +286,7 @@ mod tests {
     #[test]
     fn test_convert_html() {
         let actual = convert_html_to_list_of_words("<p>Hello, world!</p>");
-        let expected = vec!["<p>", "Hello", ",", " ", "world", "!", "</p>"];
+        let expected = vec!["<p>", "Hello,", " ", "world!", "</p>"];
         assert_eq!(actual, expected);
     }
 
