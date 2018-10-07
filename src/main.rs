@@ -89,85 +89,135 @@ struct Point {
     y: usize,
 }
 
-// see: Sun Wu, Udi Manber, G.Myers, W.Miller, "An O(NP) Sequence Comparison Algorithm"
-fn diff<T: Eq>(a: &[T], b: &[T]) -> Vec<Edit> {
-    let m = a.len();
-    let n = b.len();
-    if m > n {
-        return diff(b, a);
+struct SESBuilder<'a, T: 'a + Eq> {
+    a: &'a [T],
+    b: &'a [T],
+    m: usize,
+    n: usize,
+    delta: isize,
+    offset: isize,
+    ids: Vec<isize>,
+    points: Vec<PointWithPrev>,
+    reverse: bool,
+}
+
+impl<'a, T: 'a + Eq> SESBuilder<'a, T> {
+    fn new(a: &'a [T], b: &'a [T]) -> Self {
+        let reverse = a.len() > b.len();
+        let (a, b) = if reverse { (b, a) } else { (a, b) };
+        let m = a.len();
+        let n = b.len();
+        let delta = (n - m) as isize;
+        let offset = (m + 1) as isize;
+        let ids = vec![-1; m + n + 3];
+        let points = vec![];
+
+        Self {
+            a,
+            b,
+            m,
+            n,
+            delta,
+            offset,
+            ids,
+            points,
+            reverse,
+        }
     }
-    let offset = (m + 1) as isize;
-    let delta = (n - m) as isize;
-    let delta_offset = (delta + offset) as usize;
 
-    // for SES
-    let mut ids = vec![-1; m + n + 3];
-    let mut points = vec![];
-    {
-        let mut snake = |k: isize, fp1: isize, fp2: isize| -> isize {
-            let fp = std::cmp::max(fp1, fp2);
-            let mut y = fp as usize;
-            let mut x = (fp - k) as usize;
-            while x < m && y < n && a[x] == b[y] {
-                x += 1;
-                y += 1;
-            }
-            // SES
-            let ko = (k + offset) as usize;
-            // NOTE: modify >= to > to change delete/insert orders.
-            let prev = if fp1 >= fp2 { ids[ko - 1] } else { ids[ko + 1] };
-            ids[ko] = points.len() as isize;
-            points.push(PointWithPrev { x, y, prev });
-            y as isize
-        };
+    fn build(&mut self) -> Vec<Edit> {
+        self.compare();
+        self.build_ses()
+    }
 
-        let mut fp = vec![-1; m + n + 3];
+    // see: Sun Wu, Udi Manber, G.Myers, W.Miller, "An O(NP) Sequence Comparison Algorithm"
+    fn compare(&mut self) {
+        let delta = self.delta;
+        let delta_offset = (self.delta + self.offset) as usize;
+
+        let mut fp = vec![-1; self.m + self.n + 3];
         let mut p = -1;
         loop {
             p += 1;
             for k in -p..delta {
-                let ko = (k + offset) as usize;
-                fp[ko] = snake(k, fp[ko - 1] + 1, fp[ko + 1]);
+                let ko = (k + self.offset) as usize;
+                fp[ko] = self.snake(k, fp[ko - 1] + 1, fp[ko + 1]);
             }
             for k in ((delta + 1)..=(delta + p)).rev() {
-                let ko = (k + offset) as usize;
-                fp[ko] = snake(k, fp[ko - 1] + 1, fp[ko + 1]);
+                let ko = (k + self.offset) as usize;
+                fp[ko] = self.snake(k, fp[ko - 1] + 1, fp[ko + 1]);
             }
-            fp[delta_offset] = snake(delta, fp[delta_offset - 1] + 1, fp[delta_offset + 1]);
+            fp[delta_offset] = self.snake(delta, fp[delta_offset - 1] + 1, fp[delta_offset + 1]);
 
-            if fp[delta_offset] >= (n as isize) {
+            if fp[delta_offset] >= (self.n as isize) {
                 break;
             }
         }
     }
 
-    let mut route: Vec<Point> = vec![];
-    let mut prev = ids[(delta + offset) as usize];
-    while prev != -1 {
-        let p = &points[prev as usize];
-        route.push(Point { x: p.x, y: p.y });
-        prev = p.prev;
+    fn snake(&mut self, k: isize, fp1: isize, fp2: isize) -> isize {
+        let fp = std::cmp::max(fp1, fp2);
+        let mut y = fp as usize;
+        let mut x = (fp - k) as usize;
+        while x < self.m && y < self.n && self.a[x] == self.b[y] {
+            x += 1;
+            y += 1;
+        }
+
+        let ko = (k + self.offset) as usize;
+        // NOTE: modify >= to > to change delete/insert orders.
+        let prev = if fp1 >= fp2 {
+            self.ids[ko - 1]
+        } else {
+            self.ids[ko + 1]
+        };
+        self.ids[ko] = self.points.len() as isize;
+        self.points.push(PointWithPrev { x, y, prev });
+
+        y as isize
     }
-    let mut px = 0;
-    let mut py = 0;
-    let mut ses = vec![];
-    for p in route.iter().rev() {
-        while px < p.x || py < p.y {
-            // compare (p.y - p.x) and (py - px)
-            if p.y + px > p.x + py {
-                ses.push(Edit::Add { new: py });
-                py += 1;
-            } else if p.y + px < p.x + py {
-                ses.push(Edit::Delete { old: px });
-                px += 1;
-            } else {
-                ses.push(Edit::Common { old: px, new: py });
-                px += 1;
-                py += 1;
+
+    fn build_ses(&mut self) -> Vec<Edit> {
+        let mut route: Vec<Point> = vec![];
+        let mut prev = self.ids[(self.delta + self.offset) as usize];
+        while prev != -1 {
+            let p = &self.points[prev as usize];
+            route.push(Point { x: p.x, y: p.y });
+            prev = p.prev;
+        }
+        let mut px = 0;
+        let mut py = 0;
+        let mut ses = vec![];
+        for p in route.iter().rev() {
+            while px < p.x || py < p.y {
+                // compare (p.y - p.x) and (py - px)
+                if p.y + px > p.x + py {
+                    ses.push(if self.reverse {
+                        Edit::Delete { old: py }
+                    } else {
+                        Edit::Add { new: py }
+                    });
+                    py += 1;
+                } else if p.y + px < p.x + py {
+                    ses.push(if self.reverse {
+                        Edit::Add { new: px }
+                    } else {
+                        Edit::Delete { old: px }
+                    });
+                    px += 1;
+                } else {
+                    ses.push(Edit::Common { old: px, new: py });
+                    px += 1;
+                    py += 1;
+                }
             }
         }
+        ses
     }
-    ses
+}
+
+fn diff<T: Eq>(a: &[T], b: &[T]) -> Vec<Edit> {
+    SESBuilder::new(a, b).build()
 }
 
 fn is_end_of_tag(c: char) -> bool {
