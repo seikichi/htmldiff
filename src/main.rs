@@ -34,6 +34,10 @@ fn main() -> io::Result<()> {
     Ok(())
 }
 
+fn is_img_tag(s: &str) -> bool {
+    s.starts_with("<img")
+}
+
 fn is_tag(s: &str) -> bool {
     s.chars().next() == Some('<')
 }
@@ -49,7 +53,7 @@ where
             }
             Edit::Add { new } => {
                 let word = new_words[*new];
-                if is_tag(word) {
+                if is_tag(word) && !is_img_tag(word) {
                     callback(word);
                 } else {
                     callback("<ins>");
@@ -59,7 +63,7 @@ where
             }
             Edit::Delete { old } => {
                 let word = old_words[*old];
-                if is_tag(word) {
+                if is_tag(word) && !is_img_tag(word) {
                     callback(word);
                 } else {
                     callback("<del>");
