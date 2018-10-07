@@ -1,6 +1,6 @@
 [package]
 name = "htmldiff"
 version = "0.1.0"
-authors = ["kondo"]
+authors = ["Seiichi KONDO <kondo.seikichi@gmail.com>"]
 
 [dependencies]
