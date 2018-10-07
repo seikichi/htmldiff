@@ -1,50 +1,74 @@
-fn main() {
-    let old_html = "<p>Hello, world!</p><div>AAA</div>";
-    let new_html = "<p>Hello, seikichi!</p><p>HAHAHA</p>";
+use std::env;
+use std::fs::File;
+use std::io;
+use std::io::prelude::*;
+use std::io::{stdout, BufReader, BufWriter};
 
-    let old_words = convert_html_to_list_of_words(old_html);
-    let new_words = convert_html_to_list_of_words(new_html);
+fn main() -> io::Result<()> {
+    let args: Vec<String> = env::args().skip(1).collect();
 
-    println!("old = {:?}", old_words);
-    println!("new = {:?}", new_words);
+    let html1 = {
+        let mut file = BufReader::new(File::open(&args[0])?);
+        let mut html = String::new();
+        file.read_to_string(&mut html)?;
+        html
+    };
 
+    let html2 = {
+        let mut file = BufReader::new(File::open(&args[1])?);
+        let mut html = String::new();
+        file.read_to_string(&mut html)?;
+        html
+    };
+
+    let old_words = convert_html_to_list_of_words(&html1);
+    let new_words = convert_html_to_list_of_words(&html2);
     let ses = diff(&old_words, &new_words);
 
-    // for e in &ses {
-    //     match e {
-    //         Edit::Common { old, new: _ } => println!(" {}", old_words[*old]),
-    //         Edit::Add { new } => println!("+{}", new_words[*new]),
-    //         Edit::Delete { old } => println!("-{}", old_words[*old]),
-    //     }
-    // }
+    let stdout = stdout();
+    let mut w = BufWriter::new(stdout.lock());
+    perform(&old_words, &new_words, &ses, |s: &str| {
+        w.write(s.as_bytes()).unwrap();
+    });
 
-    let contents = perform(&old_words, &new_words, &ses);
-    for c in &contents {
-        print!("{}", c);
-    }
-    println!("");
+    Ok(())
 }
 
-fn perform<'a>(old_words: &[&'a str], new_words: &[&'a str], ses: &[Edit]) -> Vec<&'a str> {
-    let mut contents = vec![];
+fn is_tag(s: &str) -> bool {
+    s.chars().next() == Some('<')
+}
+
+fn perform<'a, F>(old_words: &[&'a str], new_words: &[&'a str], ses: &[Edit], mut callback: F)
+where
+    F: FnMut(&str) -> (),
+{
     for edit in ses {
         match edit {
             Edit::Common { old, new: _ } => {
-                contents.push(old_words[*old]);
+                callback(old_words[*old]);
             }
             Edit::Add { new } => {
-                contents.push("<ins>");
-                contents.push(new_words[*new]);
-                contents.push("</ins>");
+                let word = new_words[*new];
+                if is_tag(word) {
+                    callback(word);
+                } else {
+                    callback("<ins>");
+                    callback(word);
+                    callback("</ins>");
+                }
             }
             Edit::Delete { old } => {
-                contents.push("<del>");
-                contents.push(old_words[*old]);
-                contents.push("</del>");
+                let word = old_words[*old];
+                if is_tag(word) {
+                    callback(word);
+                } else {
+                    callback("<del>");
+                    callback(word);
+                    callback("</del>");
+                }
             }
         }
     }
-    contents
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
@@ -65,6 +89,7 @@ struct Point {
     y: usize,
 }
 
+// see: Sun Wu, Udi Manber, G.Myers, W.Miller, "An O(NP) Sequence Comparison Algorithm"
 fn diff<T: Eq>(a: &[T], b: &[T]) -> Vec<Edit> {
     let m = a.len();
     let n = b.len();
@@ -157,10 +182,6 @@ fn is_whitespace(c: char) -> bool {
     c.is_whitespace()
 }
 
-fn is_in_word(c: char) -> bool {
-    c.is_alphanumeric() || c == '#' || c == '@'
-}
-
 fn convert_html_to_list_of_words(s: &str) -> Vec<&str> {
     enum Mode {
         Char,
@@ -171,38 +192,40 @@ fn convert_html_to_list_of_words(s: &str) -> Vec<&str> {
     let mut start = 0;
     let mut mode = Mode::Char;
 
-    for (i, c) in s.chars().enumerate() {
+    for (i, c) in s.char_indices() {
         match mode {
             Mode::Char if is_start_of_tag(c) => {
                 if start != i {
-                    words.push(&s[start..i]);
+                    unsafe {
+                        words.push(s.get_unchecked(start..i));
+                    }
                 }
                 start = i;
                 mode = Mode::Tag;
             }
             Mode::Char if is_whitespace(c) => {
                 if start != i {
-                    words.push(&s[start..i]);
+                    unsafe {
+                        words.push(s.get_unchecked(start..i));
+                    }
                 }
                 start = i;
                 mode = Mode::Whitespace;
             }
-            Mode::Char if is_in_word(c) => { /* continue */ }
-            Mode::Char => {
-                if start != i {
-                    words.push(&s[start..i]);
-                }
-                start = i;
-            }
+            Mode::Char => { /* continue */ }
             Mode::Tag if is_end_of_tag(c) => {
-                words.push(&s[start..=i]);
+                unsafe {
+                    words.push(s.get_unchecked(start..=i));
+                }
                 start = i + 1;
                 mode = Mode::Char;
             }
             Mode::Tag => { /* continue */ }
             Mode::Whitespace if is_start_of_tag(c) => {
                 if start != i {
-                    words.push(&s[start..i]);
+                    unsafe {
+                        words.push(s.get_unchecked(start..i));
+                    }
                 }
                 start = i;
                 mode = Mode::Tag;
@@ -210,7 +233,9 @@ fn convert_html_to_list_of_words(s: &str) -> Vec<&str> {
             Mode::Whitespace if is_whitespace(c) => { /* continue */ }
             Mode::Whitespace => {
                 if start != i {
-                    words.push(&s[start..i]);
+                    unsafe {
+                        words.push(s.get_unchecked(start..i));
+                    }
                 }
                 start = i;
                 mode = Mode::Char;
