@@ -1,0 +1,6 @@
+[package]
+name = "htmldiff"
+version = "0.1.0"
+authors = ["kondo"]
+
+[dependencies]
