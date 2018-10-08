@@ -76,7 +76,7 @@ fn is_start_of_tag(c: char) -> bool {
 }
 
 fn is_whitespace(c: char) -> bool {
-    c == ' ' || c == '\n' || c == '\t'
+    c.is_ascii_whitespace()
 }
 
 #[cfg(test)]
