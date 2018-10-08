@@ -2,6 +2,10 @@
 
 Rust port of [myobie/htmldiff](https://github.com/myobie/htmldiff).
 
+[![Linux build status](https://travis-ci.org/seikichi/htmldiff.svg)](https://travis-ci.org/seikichi/htmldiff)
+[![Windows build status](https://ci.appveyor.com/api/projects/status/github/seikichi/htmldiff?svg=true)](https://ci.appveyor.com/project/seikichi/htmldiff)
+[![Crates.io](https://img.shields.io/crates/v/htmldiff.svg)](https://crates.io/crates/htmldiff)
+
 ## Installation
 
 ### Cargo
@@ -57,3 +61,7 @@ fn main() {
 ## License
 
 MIT
+
+## Alternatives
+
+- [HtmlDiff - W3C Wiki](https://www.w3.org/wiki/HtmlDiff)
