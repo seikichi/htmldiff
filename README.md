@@ -17,7 +17,7 @@ $ cargo install htmldiff
 ### Manual
 
 You can download prebuilt binaries in the
-[releases section](https://github.com/Aaronepower/tokei/releases),
+[releases section](https://github.com/seikichi/htmldiff/releases),
 or create from source.
 
 ```sh
@@ -48,7 +48,7 @@ htmldiff = "0.1"
 
 Next, call `htmldiff::htmldiff` function in your code:
 
-```rst
+```rust
 extern crate htmldiff;
 
 fn main() {
