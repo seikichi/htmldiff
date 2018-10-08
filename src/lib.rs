@@ -1,4 +1,6 @@
 mod builder;
+mod html;
+mod wu;
 
 use builder::build_htmldiff;
 
